@@ -1,0 +1,142 @@
+import streamlit as st
+from src.database.manager import DatabaseManager
+from src.agents.meta_architect import MetaArchitect
+from src.agents.agency import get_client
+from src.agents.chief_strategist import ChiefStrategist
+from datetime import date
+from src.agents.registrar_bot import RegistrarBot
+from src.agents.grind_master import GrindMaster
+db = DatabaseManager()
+import json
+import datetime
+from src.utils.calendar_handler import CalendarHandler
+from src.ui.meta_grind import render_meta_grind
+from src.ui.meta_activity import render_pagina_registro
+
+st.title("🛡️ Executive Performance Engine")
+
+tab1, tab2, tab3 = st.tabs(["Registro de Actividad", "Gestión de Metas", "Tactical Scheduler"])
+
+# 1. Obtener metas disponibles para el selectbox
+metas = db.get_all_metas() # Asumimos que esta función devuelve una lista de diccionarios/tuplas
+meta_options = {m['nombre']: m['id'] for m in metas}
+
+agente_arquitecto = MetaArchitect(llm_client=get_client())
+registrar_bot = RegistrarBot(llm_client=get_client())
+gm = GrindMaster(llm_client=get_client())
+
+MODO_MAP = {
+    "Corto Plazo (3 días)": 3,
+    "Mensual (30 días)": 30
+}
+
+if 'calendar_bot' not in st.session_state:
+    st.session_state['calendar_bot'] = CalendarHandler()
+calendar = st.session_state['calendar_bot']
+
+if 'dialectical_history' not in st.session_state:
+    st.session_state['dialectical_history'] = []
+    st.session_state['call_count'] = 0
+
+# Función para interactuar con Claude manteniendo el historial
+def send_dialectical_message(user_input):
+    if st.session_state['call_count'] < 3:
+        # Añadir mensaje de usuario al historial
+        st.session_state['dialectical_history'].append({"role": "user", "content": user_input})
+        
+        # Llamar a Claude con todo el historial acumulado
+        response = ChiefStrategist.continue_dialogue(st.session_state['dialectical_history'])
+        
+        # Guardar respuesta
+        st.session_state['dialectical_history'].append({"role": "assistant", "content": response})
+        st.session_state['call_count'] += 1
+        return response
+    else:
+        return "⚠️ Has alcanzado el límite de 3 interacciones dialécticas para esta auditoría. Abre una nueva auditoría para profundizar más."
+
+with tab1:
+    render_pagina_registro(db, st.session_state['calendar_bot'])
+
+with tab2:
+    st.header("Gestión de Metas Estratégicas")
+    
+    # 1. MODO ESTRATÉGICO ASISTIDO (Brian Tracy)
+    st.subheader("Establecimiento Asistido")
+    # Importante: Asegúrate de inicializar meta_architect antes o inyectarlo
+    from src.ui.meta_form import render_meta_chat_interface
+    render_meta_chat_interface(agente_arquitecto,db) # Pasa la instancia de tu agente aquí
+    
+    st.divider()
+    
+    # 2. MODO MANUAL (Para ajustes rápidos o correcciones)
+    with st.expander("➕ Crear Meta Manualmente"):
+        with st.form("meta_form", clear_on_submit=True):
+            nombre = st.text_input("Nombre de la meta")
+            contexto = st.text_area("¿Por qué es importante?")
+            prioridad = st.slider("Prioridad (1-10)", 1, 10, 5)
+            deadline = st.date_input("Fecha límite")
+            
+            if st.form_submit_button("Registrar Meta Directa"):
+                db.add_meta(nombre, contexto, prioridad, deadline)
+                st.success(f"Meta '{nombre}' registrada.")
+                st.rerun() # Recargar para ver el cambio inmediato
+
+    # 3. VISUALIZACIÓN DE METAS
+    st.divider()
+    st.subheader("🎯 Tus Metas Actuales")
+
+    metas = db.get_all_metas()
+    if not metas:
+        st.info("No tienes metas registradas.")
+    else:
+        for row in metas:
+            meta = dict(row) 
+            
+            with st.expander(f"🎯 {meta.get('nombre', 'Sin nombre')} (Prioridad: {meta.get('prioridad', 3)})"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Declaración:** {meta.get('declaracion', 'No definida')}")
+                    st.write(f"**Por qué:** {meta.get('por_que', 'No definido')}")
+                with col2:
+                    p = meta.get('prioridad', 0)
+                    # Barra de progreso visual para la prioridad
+                    st.progress(p / 10)
+                    st.write(f"**Nivel de Importancia:** {p}/10")
+                
+                st.divider()
+                
+                # MOSTRAR MÉTRICAS (NUEVO)
+                st.write("**📊 Métricas de Éxito:**")
+                metricas_raw = meta.get('metricas_json')
+                if metricas_raw:
+                    try:
+                        metricas = json.loads(metricas_raw)
+                        if metricas:
+                            for m in metricas:
+                                st.markdown(f"- {m}")
+                        else:
+                            st.info("No se definieron métricas específicas.")
+                    except:
+                        st.write(metricas_raw)
+                
+                st.write("")
+                st.write("**📝 Plan de Acción:**")
+                
+                acciones_raw = meta.get('acciones_json')
+                if acciones_raw:
+                    try:
+                        # Intentamos deserializar el JSON
+                        acciones = json.loads(acciones_raw)
+                        for i, accion in enumerate(acciones, 1):
+                            st.write(f"{i}. {accion}")
+                    except:
+                        st.write(acciones_raw) # Si no es JSON, lo mostramos como texto
+                else:
+                    st.info("Aún no hay un plan de acción detallado para esta meta.")
+
+with tab3:
+    st.header("⚡ The Grind Master: Tactical Scheduler")
+    
+    # Delegación total al componente meta_grind
+    # Pasamos las instancias necesarias para la autonomía total
+    render_meta_grind(db, calendar, gm)

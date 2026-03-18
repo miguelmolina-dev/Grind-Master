@@ -1,0 +1,33 @@
+# --- SEGURIDAD (CRÍTICO) ---
+# No subir credenciales ni tokens de acceso de Google
+credentials.json
+token.json
+
+# --- BASE DE DATOS ---
+# No subir la base de datos local para evitar conflictos de escritura
+# y proteger tus datos personales/registros
+data/*.db
+data/*.sqlite
+*.db
+
+# --- PYTHON / ENTORNO ---
+# Archivos de configuración del entorno virtual
+.venv/
+venv/
+ENV/
+env/
+
+# Archivos compilados de Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# --- IDEs / EDITORES ---
+# Configuraciones específicas de VS Code o PyCharm
+.vscode/
+.idea/
+.DS_Store
+
+# --- OTROS ---
+# Archivos de registro de errores
+*.log
