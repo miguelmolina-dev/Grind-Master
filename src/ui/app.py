@@ -1,7 +1,7 @@
 import streamlit as st
 from src.database.manager import DatabaseManager
 from src.agents.meta_architect import MetaArchitect
-from src.agents.agency import get_client
+from src.utils.model_config import get_openai_client
 from src.agents.chief_strategist import ChiefStrategist
 from datetime import date
 from src.agents.registrar_bot import RegistrarBot
@@ -29,11 +29,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
 metas = db.get_all_metas() # Asumimos que esta función devuelve una lista de diccionarios/tuplas
 meta_options = {m['nombre']: m['id'] for m in metas}
 
-agente_arquitecto = MetaArchitect(llm_client=get_client())
-registrar_bot = RegistrarBot(llm_client=get_client())
-gm = GrindMaster(llm_client=get_client())
-iron_architect = IronArchitect(llm_client=get_client())
-coach_pain = IronCoach(llm_client=get_client(), db=db)
+agente_arquitecto = MetaArchitect(llm_client=get_openai_client())
+registrar_bot = RegistrarBot(llm_client=get_openai_client())
+gm = GrindMaster(llm_client=get_openai_client())
+iron_architect = IronArchitect(llm_client=get_openai_client())
+coach_pain = IronCoach(llm_client=get_openai_client(), db=db)
 
 MODO_MAP = {
     "Corto Plazo (3 días)": 3,
