@@ -2,10 +2,10 @@ import streamlit as st
 import datetime
 from googleapiclient.errors import HttpError
 from src.utils.add_description import enriquecer_plan_del_dia
-from src.agents.agency import get_client # Aquí debes pasar tu instancia de modelo (Gemini o LangChain)
+from src.utils.model_config import get_openai_client # Aquí debes pasar tu instancia de modelo (Gemini o LangChain)
 from src.agents.tactical_agent import TacticalPrecisionAgent
 
-agent_tactico = TacticalPrecisionAgent(llm_client=get_client())
+agent_tactico = TacticalPrecisionAgent(llm_client=get_openai_client())
 
 def render_pagina_registro(db, calendar_handler):
     st.header("🚀 Registro de Ejecución Diaria")
