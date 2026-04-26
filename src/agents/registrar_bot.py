@@ -1,11 +1,12 @@
 import json
 from src.agents.prompts import DATA_CLERK_PROMPT
+from src.utils.model_config import DEFAULT_MODEL
 
 
 class RegistrarBot:
     def __init__(self, llm_client):
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = DEFAULT_MODEL
 
     def process_entry(self, categoria, evento, solucion, dificultad, meta_id=None):
         # Asegúrate de pasar 'dificultad' explícitamente en el prompt

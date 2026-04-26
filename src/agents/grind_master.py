@@ -1,12 +1,13 @@
 import json
 from datetime import datetime
 from src.agents.prompts import PROMPT_GRIND_MASTER, PROMPT_EJECUTOR_DIARIO
+from src.utils.model_config import DEFAULT_MODEL
 
 class GrindMaster:
     def __init__(self, llm_client):
         self.client = llm_client
         self.system_prompt = PROMPT_GRIND_MASTER
-        self.model = "google/gemini-2.0-flash-001"
+        self.model = DEFAULT_MODEL
 
     def generar_plan(self, metas, horas_dw, restricciones):
         # Convertimos las metas a una cadena legible

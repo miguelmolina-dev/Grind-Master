@@ -1,11 +1,12 @@
 from src.agents.prompts import STRATEGIC_SYSTEM_PROMPT, MODES
+from src.utils.model_config import DEFAULT_MODEL
 
 class ChiefStrategist:
     def __init__(self, llm_client):
         self.system_prompt = STRATEGIC_SYSTEM_PROMPT
         self.client = llm_client
         self.role = "Consultor de Alto Rendimiento"
-        self.model = "google/gemini-2.0-flash-001"
+        self.model = DEFAULT_MODEL
 
     def conduct_audit(self, data_rows, mode="short_term"):
         # Convertir datos a texto
