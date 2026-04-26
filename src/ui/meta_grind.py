@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import datetime
 
 def render_meta_grind(db, calendar, gm_agente):
     """Interfaz: Expander Global -> Tabs por Meta -> Cronograma."""
@@ -43,13 +44,26 @@ def render_meta_grind(db, calendar, gm_agente):
     
     st.write("") # Espaciado estético
 
+    # Selector de fecha
+    target_date = st.date_input(
+        "📅 Selecciona el día a planificar:",
+        value=datetime.date.today(),
+        min_value=datetime.date.today()
+    )
+
+    # If the date changes, we need to clear the current plan
+    if 'ped_target_date' not in st.session_state or st.session_state['ped_target_date'] != target_date:
+        st.session_state['ped_target_date'] = target_date
+        if 'ped_actual' in st.session_state:
+            del st.session_state['ped_actual']
+
     # --- SECCIÓN 2: CONTROL DE GENERACIÓN ---
     if 'ped_actual' not in st.session_state:
-        st.info("El Comandante espera órdenes para procesar el día.")
+        st.info(f"El Comandante espera órdenes para procesar el día {target_date.strftime('%Y-%m-%d')}.")
         if st.button("🔥 INICIAR ANÁLISIS TÁCTICO", use_container_width=True):
             with st.status("The Grind Master sincronizando...", expanded=True) as status:
-                slots_ocupados = calendar.get_today_busy_blocks()
-                horas_libres = calendar.get_available_deepwork_slots()
+                slots_ocupados = calendar.get_today_busy_blocks(target_date=target_date)
+                horas_libres = calendar.get_available_deepwork_slots(target_date=target_date)
                 resultado = gm_agente.generar_plan(
                     metas=metas_activas,
                     horas_dw=horas_libres,
@@ -106,7 +120,7 @@ def render_meta_grind(db, calendar, gm_agente):
                 
                 # 2. Operación en Google Calendar
                 # Nota: push_plan_to_calendar debería devolver una lista de IDs de eventos
-                event_ids = calendar.push_plan_to_calendar(plan_a_ejecutar)
+                event_ids = calendar.push_plan_to_calendar(plan_a_ejecutar, target_date=st.session_state['ped_target_date'])
                 
                 if event_ids:
                     # 3. Persistencia en SQLite (Solo si la subida fue exitosa)
