@@ -10,7 +10,7 @@ class IronCoach:
     def __init__(self, llm_client, db: DatabaseManager):
         self.client = llm_client
         self.db = db
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = "google/gemini-2.0-flash-001"
         self.model_path = r"G:\Proyectos_Python\resolvers-log\src\utils\voice_models\en_US-norman-medium.onnx"
         self.config_path = r"G:\Proyectos_Python\resolvers-log\src\utils\voice_models\en_US-norman-medium.onnx.json"
         

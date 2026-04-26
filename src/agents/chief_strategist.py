@@ -5,7 +5,7 @@ class ChiefStrategist:
         self.system_prompt = STRATEGIC_SYSTEM_PROMPT
         self.client = llm_client
         self.role = "Consultor de Alto Rendimiento"
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = "google/gemini-2.0-flash-001"
 
     def conduct_audit(self, data_rows, mode="short_term"):
         # Convertir datos a texto

@@ -6,7 +6,7 @@ class GrindMaster:
     def __init__(self, llm_client):
         self.client = llm_client
         self.system_prompt = PROMPT_GRIND_MASTER
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = "google/gemini-2.0-flash-001"
 
     def generar_plan(self, metas, horas_dw, restricciones):
         # Convertimos las metas a una cadena legible

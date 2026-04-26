@@ -6,7 +6,7 @@ import concurrent.futures
 class MetaArchitect:
     def __init__(self, llm_client):
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = "google/gemini-2.0-flash-001"
 
     def _llamar_llm_json(self, system_prompt, user_content):
         try:

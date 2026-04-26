@@ -5,7 +5,7 @@ import datetime
 class IronArchitect:
     def __init__(self, llm_client):
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free" # Tu modelo configurado
+        self.model = "google/gemini-2.0-flash-001" # Tu modelo configurado
 
     def planificar_rutina(self, tipo_rutina, historial_previo, guia_maestra):
         """
