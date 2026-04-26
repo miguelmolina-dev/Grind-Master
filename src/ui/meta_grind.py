@@ -71,9 +71,14 @@ def render_meta_grind(db, calendar, gm_agente):
                         "bloques_ocupados": slots_ocupados,
                         "horas_reales": horas_libres} 
                 )
-                st.session_state['ped_actual'] = resultado
-                status.update(label="✅ Plan Generado", state="complete")
-            st.rerun()
+
+                if "error" in resultado:
+                    status.update(label="❌ Error en la generación del plan", state="error")
+                    st.error(resultado["error"])
+                else:
+                    st.session_state['ped_actual'] = resultado
+                    status.update(label="✅ Plan Generado", state="complete")
+                    st.rerun()
 
     else:
         # --- SECCIÓN 3: PROTOCOLO DE EJECUCIÓN HORA POR HORA ---
