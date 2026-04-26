@@ -1,11 +1,12 @@
 import json
 from src.agents.prompts import TACTICAL_AGENT_PROMPT
+from src.utils.model_config import DEFAULT_MODEL
 
 class TacticalPrecisionAgent:
     def __init__(self, llm_client):
         # Aquí pasas tu instancia de Gemini o LangChain
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = DEFAULT_MODEL
 
     def generar_instrucciones(self, tarea, metas, duracion):
         # 1. Preparación de contexto (esto ya lo tienes bien)

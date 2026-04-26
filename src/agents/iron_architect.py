@@ -1,11 +1,12 @@
 import json
 from src.agents.prompts import IRON_ARCHITECT_PROMPT, REFERENCIA_RUTINAS
 import datetime
+from src.utils.model_config import DEFAULT_MODEL
 
 class IronArchitect:
     def __init__(self, llm_client):
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free" # Tu modelo configurado
+        self.model = DEFAULT_MODEL
 
     def planificar_rutina(self, tipo_rutina, historial_previo, guia_maestra):
         """

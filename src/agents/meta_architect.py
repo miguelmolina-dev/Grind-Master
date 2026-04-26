@@ -2,11 +2,12 @@ import json
 import re
 from src.agents.prompts import PROMPT_VALIDADOR, PROMPT_EXTRACTOR, PROMPT_MENTOR
 import concurrent.futures
+from src.utils.model_config import DEFAULT_MODEL
 
 class MetaArchitect:
     def __init__(self, llm_client):
         self.client = llm_client
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = DEFAULT_MODEL
 
     def _llamar_llm_json(self, system_prompt, user_content):
         try:

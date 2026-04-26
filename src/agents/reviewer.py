@@ -1,19 +1,14 @@
 import os
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from src.utils.model_config import get_langchain_llm
 
 load_dotenv()
 
 class PerformanceReviewer:
     def __init__(self):
-        # Configuración para OpenRouter
-        self.llm = ChatOpenAI(
-            model="meta-llama/llama-3-8b-instruct", # O el modelo que prefieras
-            openai_api_base="https://openrouter.ai/api/v1",
-            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-            temperature=0.2
-        )
+        # Configuración para OpenRouter a través de model_config
+        self.llm = get_langchain_llm(temperature=0.2)
 
     def generate_review(self, victories):
         if not victories:

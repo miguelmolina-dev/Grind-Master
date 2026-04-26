@@ -5,12 +5,13 @@ from src.agents.prompts import COACH_PAIN_PROMPT
 import json
 import subprocess
 import os
+from src.utils.model_config import DEFAULT_MODEL
 
 class IronCoach:
     def __init__(self, llm_client, db: DatabaseManager):
         self.client = llm_client
         self.db = db
-        self.model = "stepfun/step-3.5-flash:free"
+        self.model = DEFAULT_MODEL
         self.model_path = r"G:\Proyectos_Python\resolvers-log\src\utils\voice_models\en_US-norman-medium.onnx"
         self.config_path = r"G:\Proyectos_Python\resolvers-log\src\utils\voice_models\en_US-norman-medium.onnx.json"
         
