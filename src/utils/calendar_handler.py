@@ -44,10 +44,15 @@ class CalendarHandler:
         self.service = build('calendar', 'v3', credentials=self.creds)
         self.grind_calendar_id = "54215f94b37e4daaaf808d5fee68c04cecf64f1244efdf607d8ec05643068b83@group.calendar.google.com"
 
-    def get_upcoming_events(self, max_results=10):
+    def get_upcoming_events(self, max_results=10, target_date=None):
         """Lee los eventos próximos con el estándar moderno."""
-        # Genera el timestamp en formato ISO con la 'Z' que espera Google API
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        if target_date:
+            # We want events from target_date's start of day
+            start_time = datetime.datetime.combine(target_date, datetime.time.min).replace(tzinfo=datetime.timezone.utc)
+            now = start_time.isoformat().replace("+00:00", "Z")
+        else:
+            # Genera el timestamp en formato ISO con la 'Z' que espera Google API
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
         
         events_result = self.service.events().list(
             calendarId='primary', 
@@ -91,15 +96,18 @@ class CalendarHandler:
         last_event = sorted(items, key=lambda x: x['start'].get('dateTime', x['start'].get('date')), reverse=True)[0]
         return last_event['start'].get('dateTime')
     
-    def get_available_deepwork_slots(self):
+    def get_available_deepwork_slots(self, target_date=None):
         """Calcula horas libres entre 08:00 y 18:00 en Caracas."""
-        now = datetime.datetime.now(datetime.timezone.utc)
+        if target_date:
+            base_date = datetime.datetime.combine(target_date, datetime.time.min).replace(tzinfo=datetime.timezone.utc)
+        else:
+            base_date = datetime.datetime.now(datetime.timezone.utc)
         # Definir jornada laboral teórica
-        start_day = now.replace(hour=8, minute=0, second=0, microsecond=0)
-        end_day = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        start_day = base_date.replace(hour=8, minute=0, second=0, microsecond=0)
+        end_day = base_date.replace(hour=18, minute=0, second=0, microsecond=0)
         
-        # Obtener eventos de hoy
-        events = self.get_upcoming_events(max_results=50)
+        # Obtener eventos del día objetivo
+        events = self.get_upcoming_events(max_results=50, target_date=target_date)
         total_busy_minutes = 0
         
         for event in events:
@@ -123,11 +131,14 @@ class CalendarHandler:
         
         return max(0, round(available_hours, 1))
     
-    def get_today_busy_blocks(self):
+    def get_today_busy_blocks(self, target_date=None):
         """Devuelve una lista de strings con los rangos horarios ocupados hoy."""
-        now = datetime.datetime.now(datetime.timezone.utc)
-        start_day = now.replace(hour=0, minute=0, second=0).isoformat().replace("+00:00", "Z")
-        end_day = now.replace(hour=23, minute=59, second=59).isoformat().replace("+00:00", "Z")
+        if target_date:
+            base_date = datetime.datetime.combine(target_date, datetime.time.min).replace(tzinfo=datetime.timezone.utc)
+        else:
+            base_date = datetime.datetime.now(datetime.timezone.utc)
+        start_day = base_date.replace(hour=0, minute=0, second=0).isoformat().replace("+00:00", "Z")
+        end_day = base_date.replace(hour=23, minute=59, second=59).isoformat().replace("+00:00", "Z")
 
         events = self.service.events().list(
             calendarId='primary',
@@ -150,12 +161,12 @@ class CalendarHandler:
         
         return bloques
     
-    def push_plan_to_calendar(self, plan_json):
+    def push_plan_to_calendar(self, plan_json, target_date=None):
         """
         Inserta los bloques y devuelve una lista de IDs de Google Calendar.
         """
         # Limpiar eventos previos del Agente para evitar duplicados
-        self.clear_grind_events()
+        self.clear_grind_events(target_date=target_date)
         
         event_ids = []
         cronograma = plan_json.get('plan', [])
@@ -163,9 +174,12 @@ class CalendarHandler:
         for slot in cronograma:
             # Lógica de tiempo (Caracas)
             inicio = datetime.datetime.strptime(slot['hora'], "%H:%M")
-            # Ajustar a la fecha de hoy
-            ahora = datetime.datetime.now()
-            inicio = ahora.replace(hour=inicio.hour, minute=inicio.minute, second=0, microsecond=0)
+            # Ajustar a la fecha objetivo
+            if target_date:
+                base_date = datetime.datetime.combine(target_date, datetime.time.min)
+            else:
+                base_date = datetime.datetime.now()
+            inicio = base_date.replace(hour=inicio.hour, minute=inicio.minute, second=0, microsecond=0)
             fin = inicio + datetime.timedelta(minutes=slot.get('duracion_min', 60))
 
             event = {
@@ -193,12 +207,20 @@ class CalendarHandler:
         event['colorId'] = '10' 
         self.service.events().update(calendarId=self.grind_calendar_id, eventId=event_id, body=event).execute()
 
-    def clear_grind_events(self):
-        """Elimina eventos con el prefijo 🛡️ para el día actual."""
-        now = datetime.datetime.now().replace(hour=0, minute=0).isoformat() + 'Z'
+    def clear_grind_events(self, target_date=None):
+        """Elimina eventos con el prefijo 🛡️ para el día actual o el día objetivo."""
+        if target_date:
+            base_date = datetime.datetime.combine(target_date, datetime.time.min)
+        else:
+            base_date = datetime.datetime.now()
+
+        time_min = base_date.replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + 'Z'
+        time_max = base_date.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat() + 'Z'
+
         events = self.service.events().list(
             calendarId=self.grind_calendar_id, 
-            timeMin=now,
+            timeMin=time_min,
+            timeMax=time_max,
             q="🛡️"
         ).execute().get('items', [])
         
