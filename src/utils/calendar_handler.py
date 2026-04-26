@@ -207,3 +207,47 @@ class CalendarHandler:
                 calendarId=self.grind_calendar_id, 
                 eventId=event['id']
             ).execute()
+
+    def update_event_description(self, event_id, description):
+        try:
+            # Primero obtenemos el evento para no perder otros datos
+            event = self.service.events().get(
+                calendarId=self.grind_calendar_id, 
+                eventId=event_id
+            ).execute()
+
+            # Solo modificamos la descripción
+            event['description'] = description
+
+            self.service.events().update(
+                calendarId=self.grind_calendar_id, 
+                eventId=event_id, 
+                body=event
+            ).execute()
+            return True
+        except Exception as e:
+            print(f"Error al actualizar descripción en Google: {e}")
+            return False
+# Dentro de la clase CalendarHandler:
+    def get_next_event(self):
+        """
+        Busca el evento actual o el próximo en la agenda de Google Calendar.
+        """
+        ahora = datetime.datetime.utcnow().isoformat() + 'Z'
+        
+        # Llamada a la API de Google Calendar (usando tu service ya configurado)
+        events_result = self.service.events().list(
+            calendarId='primary', 
+            timeMin=ahora,
+            maxResults=5, 
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        
+        events = events_result.get('items', [])
+
+        if not events:
+            return None
+            
+        # Retornamos el primer evento encontrado (el más próximo)
+        return events[0]

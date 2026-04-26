@@ -2,6 +2,7 @@ import sqlite3
 import json
 from datetime import datetime, timedelta
 import os
+import streamlit as st
 
 class DatabaseManager:
     def __init__(self, db_path='data/engine.db'):
@@ -338,3 +339,253 @@ class DatabaseManager:
         except Exception as e:
             print(f"❌ DEBUG: Error en delete_block_by_google_id: {e}")
             return False
+
+    # Añadir a manager.py
+
+    def delete_meta_by_id(self, meta_id):
+        """Elimina una meta de la DB por su ID con manejo de errores."""
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute("DELETE FROM metas WHERE id = ?", (meta_id,))
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ Error al borrar meta {meta_id}: {e}")
+            return False
+        
+    # En manager.py
+
+    def update_meta_fields(self, meta_id, prioridad, metricas_json, acciones_json):
+        """Actualiza los campos estratégicos de una meta."""
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute("""
+                    UPDATE metas 
+                    SET prioridad = ?, 
+                        metricas_json = ?, 
+                        acciones_json = ? 
+                    WHERE id = ?
+                """, (prioridad, metricas_json, acciones_json, meta_id))
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ Error al actualizar meta {meta_id}: {e}")
+            return False
+        
+    def get_bloques_sin_detalles(self):
+        """
+        Busca tareas de HOY que aún no han sido procesadas.
+        """
+        query = """
+        SELECT * FROM bloques_trabajo 
+        WHERE fecha = date('now', 'localtime')
+        AND (detalles_tacticos IS NULL OR detalles_tacticos = '')
+        """
+        return self.execute_query_dict(query)
+
+    def update_detalles_bloque(self, bloque_id, detalles):
+        """Guarda la descripción detallada generada por la IA."""
+        with self.conn:
+            self.conn.execute(
+                "UPDATE bloques_trabajo SET detalles_tacticos = ? WHERE id = ?",
+                (detalles, bloque_id)
+            )
+
+    def execute_query_dict(self, query, params=()):
+        """Ejecuta una consulta y devuelve los resultados como una lista de diccionarios."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            # Obtenemos los nombres de las columnas
+            columns = [column[0] for column in cursor.description]
+            # Creamos la lista de diccionarios
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            return results
+        except Exception as e:
+            print(f"❌ Error al ejecutar query dict: {e}")
+            return []
+        
+    def insert_ejercicio(self, nombre, grupo, tipo, instrucciones):
+        query = """
+        INSERT INTO ejercicios (nombre, grupo_muscular, tipo_medicion, instrucciones_tecnicas)
+        VALUES (?, ?, ?, ?)
+        """
+        self.execute_query_dict(query, (nombre, grupo, tipo, instrucciones))
+
+    def get_historial_para_agente(self, grupo_muscular):
+        """
+        Trae los últimos 3 registros de cada ejercicio perteneciente a un grupo muscular.
+        """
+        query = """
+        WITH RankedLogs AS (
+            SELECT 
+                e.nombre as ejercicio,
+                h.fecha,
+                h.peso_kg,
+                h.repeticiones,
+                h.duracion_seg,
+                ROW_NUMBER() OVER (PARTITION BY e.id ORDER BY h.fecha DESC) as rn
+            FROM ejercicios e
+            LEFT JOIN historial_entrenos h ON e.id = h.ejercicio_id
+            WHERE e.grupo_muscular = ?
+        )
+        SELECT * FROM RankedLogs WHERE rn <= 3
+        """
+        # Importante: Convertir Row a dict para evitar errores de JSON
+        filas = self.execute_query(query, (grupo_muscular,))
+        return [dict(row) for row in filas]
+    
+    def get_guia_maestra(self, grupo_muscular):
+        """
+        Recupera la configuración de referencia para un grupo muscular específico.
+        """
+        query = "SELECT ejercicios_referencia, notas_estilo FROM config_rutinas WHERE grupo_muscular = ?"
+        resultado = self.execute_query_dict(query, (grupo_muscular,))
+        
+        # Si existe, devolvemos el primer registro; si no, valores por defecto para el agente
+        if resultado:
+            return resultado[0]
+        return {
+            "ejercicios_referencia": "No definidos. Establecer marca base hoy.",
+            "notas_estilo": "Seguir protocolo estándar de alta intensidad."
+        }
+
+    def guardar_guia_maestra(self, grupo_muscular, ejercicios, notas):
+        """
+        Guarda o actualiza la guía maestra utilizando la sintaxis ON CONFLICT (UPSERT).
+        """
+        query = """
+        INSERT INTO config_rutinas (grupo_muscular, ejercicios_referencia, notas_estilo)
+        VALUES (?, ?, ?)
+        ON CONFLICT(grupo_muscular) DO UPDATE SET 
+            ejercicios_referencia = excluded.ejercicios_referencia,
+            notas_estilo = excluded.notas_estilo
+        """
+        return self.execute_query(query, (grupo_muscular, ejercicios, notas))
+    
+    def insert_ejercicio(self, nombre, grupo, tipo, instrucciones):
+        query = """
+        INSERT INTO ejercicios (nombre, grupo_muscular, tipo_medicion, instrucciones_tecnicas)
+        VALUES (?, ?, ?, ?)
+        """
+        # Usamos la nueva función de acción con commit
+        return self.execute_action(query, (nombre, grupo, tipo, instrucciones))
+    
+    def execute_query(self, query, params=()):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            # Obtenemos los nombres de las columnas
+            columns = [column[0] for column in cursor.description] if cursor.description else []
+            # Retornamos lista de diccionarios o lista vacía
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error en la consulta: {e}")
+            return [] # <--- NUNCA devolver True/False aquí
+
+    def execute_action(self, query, params=()):
+        """Para INSERT, UPDATE, DELETE (Operaciones que cambian la DB)"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            self.conn.commit()  # <--- ESTO ES LO QUE FALTA PARA GUARDAR
+            return True
+        except Exception as e:
+            st.error(f"Error de escritura: {e}")
+            self.conn.rollback() # Revierte cambios si hay error
+            return False
+        
+    def get_all_exercises(self):
+        """Retorna una lista de diccionarios con todos los ejercicios y sus metadatos."""
+        try:
+            # Ajusta el nombre de la tabla según tu esquema SQL
+            query = "SELECT id, nombre, grupo_muscular FROM ejercicios"
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            
+            filas = cursor.fetchall()
+            
+            # Mapeamos a un formato fácil de filtrar en el frontend
+            return [
+                {
+                    "id": f[0], 
+                    "nombre": f[1], 
+                    "musculo": f[2].lower().strip() if f[2] else "desconocido"
+                } 
+                for f in filas
+            ]
+        except Exception as e:
+            print(f"❌ Error al recuperar ejercicios: {e}")
+            return []
+        
+    def get_exercises(self):
+        try:
+            # Traemos todo para inspección
+            query = "SELECT nombre, grupo_muscular FROM ejercicios"
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            filas = cursor.fetchall()
+            
+            # NORMALIZACIÓN CRÍTICA
+            return [
+                {
+                    "nombre": str(f[0]).strip(), 
+                    "musculo": str(f[1]).lower().strip() if f[1] else ""
+                } 
+                for f in filas
+            ]
+        except Exception as e:
+            print(f"Error: {e}")
+            return []
+        
+    def get_exercises_by_group(self, grupo_toca):
+        """Filtra ejercicios directamente desde la DB usando la columna correcta."""
+        try:
+            # Usamos la columna exacta de tu esquema SQL
+            query = "SELECT nombre FROM ejercicios WHERE grupo_muscular = ?"
+            cursor = self.conn.cursor()
+            cursor.execute(query, (grupo_toca,))
+            
+            filas = cursor.fetchall()
+            return [f[0] for f in filas]
+        except Exception as e:
+            print(f"❌ Error en DB: {e}")
+            return []
+        
+    def get_exercises_by_muscles(self, lista_musculos):
+        if not lista_musculos:
+            return []
+        try:
+            # Normalizamos la lista de entrada a minúsculas
+            lista_minusculas = [m.lower() for m in lista_musculos]
+            placeholders = ', '.join(['?'] * len(lista_minusculas))
+            
+            # Usamos LOWER() en la columna para asegurar el match
+            query = f"SELECT nombre FROM ejercicios WHERE LOWER(grupo_muscular) IN ({placeholders})"
+            
+            cursor = self.conn.cursor()
+            cursor.execute(query, lista_minusculas)
+            return [f[0] for f in cursor.fetchall()]
+        except Exception as e:
+            print(f"❌ Error en consulta: {e}")
+            return []
+        
+    def get_last_record(self, ejercicio_nombre):
+        """Recupera el peso y repeticiones del último set de un ejercicio dado."""
+        try:
+            query = """
+                SELECT peso, repeticiones 
+                FROM historial_entrenamiento 
+                WHERE ejercicio_nombre = ? 
+                ORDER BY fecha DESC LIMIT 1
+            """
+            cursor = self.conn.cursor()
+            cursor.execute(query, (ejercicio_nombre,))
+            resultado = cursor.fetchone()
+            
+            if resultado:
+                return {"peso": resultado[0], "reps": resultado[1]}
+            return {"peso": 0.0, "reps": 0} # Valores por defecto si es la primera vez
+        except Exception as e:
+            print(f"❌ Error al recuperar último registro: {e}")
+            return {"peso": 0.0, "reps": 0}

@@ -1,6 +1,11 @@
 import streamlit as st
 import datetime
 from googleapiclient.errors import HttpError
+from src.utils.add_description import enriquecer_plan_del_dia
+from src.agents.agency import get_client # Aquí debes pasar tu instancia de modelo (Gemini o LangChain)
+from src.agents.tactical_agent import TacticalPrecisionAgent
+
+agent_tactico = TacticalPrecisionAgent(llm_client=get_client())
 
 def render_pagina_registro(db, calendar_handler):
     st.header("🚀 Registro de Ejecución Diaria")
@@ -100,3 +105,14 @@ def render_pagina_registro(db, calendar_handler):
             # Aquí llamaríamos a una función que reduzca la prioridad de los bloques restantes
             st.session_state['replan_emergency'] = True
             st.info("Solicitando al Comandante una ruta de escape táctica...")
+
+    # En tu archivo de UI (ej: app.py o meta_activity.py en la parte de render)
+
+    if st.button("🪄 Enriquecer Tareas con IA", help="Genera protocolos detallados para cada bloque"):
+        with st.spinner("El Arquitecto Táctico está diseñando tu día..."):
+            num = enriquecer_plan_del_dia(db, agent_tactico, calendar_handler)
+            if num > 0:
+                st.success(f"¡Listo! {num} tareas ahora tienen protocolos en tu Google Calendar.")
+                st.rerun()
+            else:
+                st.info("Todas las tareas ya están detalladas.")

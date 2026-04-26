@@ -15,8 +15,8 @@ data/*.sqlite
 .venv/
 venv/
 ENV/
+.env/
 env/
-
 # Archivos compilados de Python
 **/__pycache__/
 *.py[cod]
